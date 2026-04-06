@@ -80,9 +80,7 @@ pipeline {
                 echo "========== STAGE: Deploying to Vercel =========="
 
                 sh '''
-                npm install -g vercel
-
-                vercel deploy \
+                npx  vercel deploy \
                   --token $VERCEL_TOKEN \
                   --yes \
                   --prod
