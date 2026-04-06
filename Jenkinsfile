@@ -39,13 +39,7 @@ pipeline {
             }
         }
 
-        stage('Build Project') {
-            steps {
-                echo "========== STAGE: Building Project =========="
-                sh 'npm run build'
-            }
-        }
-
+       
         stage('Select Environment') {
             steps {
                 script {
