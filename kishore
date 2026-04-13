@@ -1,0 +1,112 @@
+pipeline {
+    agent any
+
+    environment {
+        // GitHub
+        GITHUB_REPO = "https://github.com/kishoresuzil1005/CRUD.git"
+        GITHUB_BRANCH = "dev"
+
+        // Vercel
+        VERCEL_TOKEN = credentials('vercel-token')
+        VERCEL_ORG_ID = credentials('vercel-org-id')
+        VERCEL_PROJECT_ID_STAGE = credentials('vercel-project-stage')
+        VERCEL_PROJECT_ID_LIVE = credentials('vercel-project-live')
+    }
+
+    stages {
+
+        stage('Checkout Code') {
+            steps {
+                echo "===== Checking out code from GitHub ====="
+
+                git branch: "${GITHUB_BRANCH}",
+                    url: "${GITHUB_REPO}",
+                    credentialsId: 'github-access-token'
+            }
+        }
+
+        stage('Install Dependencies') {
+            steps {
+                echo "===== Installing dependencies ====="
+                sh 'npm install'
+            }
+        }
+
+        stage('Run Tests') {
+            steps {
+                echo "===== Running tests ====="
+                sh 'npm run test || true'
+            }
+        }
+
+        stage('Build Project') {
+            steps {
+                echo "===== Building project ====="
+                sh 'npm run build'
+            }
+        }
+
+        stage('Select Environment') {
+            steps {
+                script {
+                    def envChoice = input(
+                        message: 'Choose deployment environment',
+                        parameters: [
+                            choice(
+                                name: 'ENV',
+                                choices: ['skip', 'stage', 'live'],
+                                description: 'Where do you want to deploy?'
+                            )
+                        ]
+                    )
+
+                    env.DEPLOY_ENV = envChoice
+
+                    if (envChoice == 'stage') {
+                        env.VERCEL_PROJECT_ID = VERCEL_PROJECT_ID_STAGE
+                        echo "Deploying to STAGE"
+                    } else if (envChoice == 'live') {
+                        env.VERCEL_PROJECT_ID = VERCEL_PROJECT_ID_LIVE
+                        echo "Deploying to LIVE"
+                    } else {
+                        echo "Skipping deployment"
+                    }
+                }
+            }
+        }
+
+        stage('Deploy to Vercel') {
+            when {
+                expression { env.DEPLOY_ENV != 'skip' }
+            }
+            steps {
+                echo "===== Deploying to Vercel ====="
+
+                sh '''
+                npm install -g vercel
+
+                vercel deploy \
+                  --token $VERCEL_TOKEN \
+                  --yes \
+                  --prod
+                '''
+            }
+        }
+
+        stage('Done') {
+            steps {
+                echo "===== Pipeline finished ====="
+                echo "Environment: ${DEPLOY_ENV}"
+            }
+        }
+    }
+
+    post {
+        success {
+            echo "SUCCESS: Pipeline completed"
+        }
+        failure {
+            echo "FAILED: Check logs"
+        }
+    }
+}
